@@ -382,3 +382,218 @@ dc["se_p"] = sqrt(dc["se_bike"]**2 - dc["bike_share"]**2 * dc["se_total"]**2) / 
 Z = (dc[dc["year"] == 2017]["bike_share"] - dc[dc["year"] == 2011]["bike_share"]) / \
     sqrt(dc[dc["year"] == 2017]["se_p"]**2 + dc[dc["year"] == 2011]["se_p"]**2)
 print(Z_CRIT < Z)
+
+
+
+'''
+    Choropleth Map of Internet Access
+    
+    In this exercise you will load a geospatial data file and create a simple choropleth map. The data come from ACS Table B28011 - "Internet Subscriptions in Household", and include columns representing total households, those with internet and no_internet access, and various kinds of internet connectivity.
+    
+    Remember that choropleth maps should show rates or proportions, not counts. After loading the data, you will calculate the percentage of households with no internet access, using columns no_internet and total households.
+    '''
+
+# Import geopandas
+import geopandas as gpd
+
+# Load geospatial data
+geo_state = gpd.read_file("states_internet.gpkg")
+
+# View GeoDataFrame columns
+print(geo_state.columns)
+
+# Calculate percent of households with no internet
+geo_state["pct_no_internet"] = 100 * geo_state["no_internet"] / geo_state["total"]
+
+# Create choropleth map using YlGnBu colormap
+geo_state.plot(column = "pct_no_internet", cmap = "YlGnBu")
+plt.show()
+
+
+
+'''
+    Proportional Symbol Map of Households w/ Internet
+    
+    To map a raw count variable, you can use a proportional symbol map to create markers of sizes that are proportional to the data value being mapped. In this exercise you will find the centroid of each state, create a basemap of states, and place a circle at each centroid that is sized by the number of households with internet access.
+    
+    The area of each marker should be proportional to the data value. Since marker sizes are provided as a diameter, you must take the square root of the column value. Marker sizes may look too big or too small. In this exercise, you will divide the marker size by 5--this is an aesthetic judgment call.
+    
+    geopandas is imported using the usual alias, and the sqrt function has been imported from numpy.
+    
+    The geo_state GeoDataFrame has been loaded.
+    '''
+
+# Create point GeoDataFrame at centroid of states
+geo_state_pt = geo_state.copy()
+geo_state_pt["geometry"] = geo_state_pt.centroid
+
+# Set basemap and create variable for markersize
+basemap = geo_state.plot(color = "tan", edgecolor = "black")
+ms = sqrt(geo_state_pt["internet"]) / 5
+
+# Plot proportional symbols on top of basemap
+geo_state_pt.plot(ax = basemap, markersize = ms, color = "lightgray", edgecolor = "darkgray")
+plt.show()
+
+
+'''
+    Bivariate Map of Broadband Access
+    
+    Sometimes we want to map two variables at once, a so-called bivariate map. One way to do this is by combining a choropleth map and a proportional symbol map. You will use the geo_state GeoDataFrame again to create a choropleth of the percentage of internet households with broadband access, and overaly a proportional symbol map of the count of households with internet access.
+    
+    You will set an alpha transparency on the proportional symbol marker so as to not completely obscure the underlying choropleth.
+    
+    geopandas is imported using the usual alias, and the sqrt function has been imported from numpy.
+    
+    The geo_state GeoDataFrame has been loaded.
+    '''
+
+
+# Create point GeoDataFrame at centroid of states
+geo_state_pt = geo_state.copy()
+geo_state_pt["geometry"] = geo_state_pt.centroid
+
+# Calculate percentage of internet households with broadband
+geo_state["pct_broadband"] = 100 * geo_state["broadband"] / geo_state["internet"]
+
+# Set choropleth basemap
+basemap = geo_state.plot(column = "pct_broadband", cmap = "YlGnBu")
+
+# Plot transparent proportional symbols on top of basemap
+geo_state_pt.plot(ax = basemap, markersize = sqrt(geo_state["internet"]) / 5, color = "lightgray", edgecolor = "darkgray", alpha = 0.7)
+plt.show()
+
+
+'''
+    Identifying Gentrifiable Tracts
+    
+    In this exercise, you will identify and map the tracts that were gentrifiable in 2000. The criteria are:
+    
+    Low median household income (MHI), determined as tract MHI less than the MHI for the New York metro area.
+    A low level of recent housing construction, determined as those tracts with a percentage of housing built in the previous 20 years (since 1980) less than the percentage for the New York metro area.
+    
+    The GeoDataFrame bk_2000, with data for Brooklyn Census tracts in 2000, has been loaded for you.
+    '''
+
+# Median income below MSA median income
+bk_2000["low_mhi"] = bk_2000["mhi"] < bk_2000["mhi_msa"]
+
+# Recent construction below MSA
+bk_2000["low_recent_build"] = bk_2000["pct_recent_build"] < bk_2000["pct_recent_build_msa"]
+
+# Identify gentrifiable tracts
+bk_2000["gentrifiable"] = (bk_2000["low_mhi"]) & (bk_2000["low_recent_build"])
+
+# Plot gentrifiable tracts
+bk_2000.plot(column = "gentrifiable", cmap = "YlGn")
+plt.show()
+
+'''
+    
+    Set increasing_education to True if the increase in the percentage of population with Bachelor's degrees from 2000 to 2010 is greater than the MSA-level increase
+    Set increasing_house_value to True if the median_value_2010 is more than 1.2612 times greater than median_value_2000
+    Using the & operator, set gentrifying to True if a tract is gentrifiable and has increasing_education and has increasing_house_value
+    Map the gentrifying tracts using a "YlOrRd" colormap
+
+    '''
+
+
+# Increase in percent BA greater than MSA
+bk_2010["increasing_education"] = (bk_2010["pct_ba_2010"] - bk_2010["pct_ba_2000"]) > (bk_2010["pct_ba_msa_2010"] - bk_2010["pct_ba_msa_2000"])
+
+# Increase in house value
+bk_2010["increasing_house_value"] = bk_2010["median_value_2010"] > bk_2010["median_value_2000"] * 1.2612
+
+# Identify gentryifying tracts
+bk_2010["gentrifying"] = bk_2010["gentrifiable"] & bk_2010["increasing_education"] & bk_2010["increasing_house_value"]
+
+# Plot gentrifying tracts
+bk_2010.plot(column = "gentrifying", cmap = "YlOrRd")
+plt.show()
+
+
+'''
+    Mapping Gentrification
+    
+    Now that you have determined which tracts were gentrifiable in 2000 and which were gentrifying between 2000 and 2010, you will create a choropleth map. You will create a basemap of the Census tracts from 2000, and add layers of the gentrifiable and gentrifying tracts with custom-selected colors.
+    '''
+
+# Create a basemap
+basemap = bk_2000.plot(color = "white", edgecolor = "lightgray")
+
+# Filter and plot gentrifiable tracts
+gentrifiable_tracts = bk_2000[bk_2000["gentrifiable"]]
+gentrifiable_tracts.plot(ax = basemap, color = "lightgray")
+
+# Filter and plot gentrifying tracts
+gentrifying_tracts = bk_2010[bk_2010["gentrifying"]]
+gentrifying_tracts.plot(ax = basemap, color = "red")
+plt.show()
+
+'''
+    Calculating D for One State
+    '''
+
+# Define convenience variables to hold column names
+w = "white"
+b = "black"
+
+# Extract Georgia tracts
+ga_tracts = tracts[tracts["state"] == "13"]
+
+# Print sums of Black and White residents of Georgia
+print(ga_tracts[[w, b]].sum())
+
+# Calculate Index of Dissimilarity and print rounded result
+D = 0.5 * sum(abs(
+                  ga_tracts[w] / ga_tracts[w].sum() - ga_tracts[b] / ga_tracts[b].sum()))
+
+print("Dissimilarity (Georgia):",round(D, 3))
+
+'''
+    Calculating D in a Loop'''
+
+# Get list of state FIPS Codes
+states = list(tracts["state"].unique())
+
+state_D = {}  # Initialize dictionary as collector
+for state in states:
+    # Filter by state
+    tmp = tracts[tracts["state"] == state]
+    
+    # Add Index of Dissimilarity to Dictionary
+    state_D[state] = 0.5 * sum(abs(tmp[w] / tmp[w].sum() - tmp[b] / tmp[b].sum()))
+
+# Print D for Georgia (FIPS = 13) and Illinois (FIPS = 17)
+print("Georgia D =", round(state_D["13"], 2))
+print("Illinois D =", round(state_D["17"], 2))
+
+'''
+    Calculating D Using Grouping in Pandas
+    
+    Performing a calculation over subsets of a data frame is so common that pandas gives us an alternative to doing it in a loop, the groupby method. In the sample code, groupby is used first to group tracts by state, i.e. those rows having the same value in the "state" column. The sum() method is applied by group to the columns.
+    '''
+
+
+
+# Sum Black and White residents grouped by state
+sums_by_state = tracts.groupby("state")[[w, b]].sum()
+print(sums_by_state.head())
+
+# Merge the sum with the original tract populations
+tracts = pd.merge(tracts, sums_by_state, left_on = "state",
+                  right_index = True, suffixes = ("", "_sum"))
+print(tracts.head())
+
+# Calculate inner expression
+tracts["D"] = abs(tracts[w] / tracts[w + "_sum"] - tracts[b] / tracts[b + "_sum"])
+
+# Calculate Index of Dissimilarity
+print(0.5 * tracts.groupby("state")["D"].sum())
+
+
+'''
+   Create Function to Calculate D
+    '''
+
+
